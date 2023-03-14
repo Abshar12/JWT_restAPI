@@ -6,8 +6,10 @@ from rest_framework.generics import RetrieveAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import permission_classes
 from myapp.models import Client,Merchant
-from myapp.serializers import ClientSerializer,MerchantSerializer
+from myapp.serializers import ClientSerializer,MerchantSerializer , ChangePasswordSerializer
 from django.contrib.auth import get_user_model
+from rest_framework import generics
+from django.contrib.auth.models import User
 # Create your views here.
 
 
@@ -77,4 +79,28 @@ class UserAPIView(APIView):
         return Response("User not found",status=status.HTTP_400_BAD_REQUEST) 
 
 
+class ChangePassword(generics.UpdateAPIView):
+    serializer_class = ChangePasswordSerializer
+    model = User
+    permission_classes = (IsAuthenticated,)
+    
+    def get_object(self, queryset=None):
+        obj = self.request.user
+        return obj
 
+    def update(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        serializer = self.get_serializer(data=request.data)
+
+        if serializer.is_valid():
+            # old password
+            
+            if not self.object.check_password(serializer.data.get("old_password")):
+                return Response({"old_password": ["Wrong password."]}, status=status.HTTP_400_BAD_REQUEST)
+            # creating and saving new password
+            
+            self.object.set_password(serializer.data.get("new_password"))
+            self.object.save()
+            return Response("Password changed successfully",status=status.HTTP_200_OK)
+
+        return Response("Some error occurred", status=status.HTTP_400_BAD_REQUEST)
